@@ -1,4 +1,4 @@
-###login into the Azure 
+### login into Azure account using subscription ID
 
 ```
 az login

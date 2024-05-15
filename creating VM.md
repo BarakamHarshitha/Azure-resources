@@ -1,7 +1,8 @@
 #login into the Azure 
-...
+
+```
 az login
-...
+```
 
 # Create VM using Azure CLI
 ### Start with creating a Resource Group

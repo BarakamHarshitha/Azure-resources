@@ -1,0 +1,169 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "[toLower('demo1')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2023-01-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "demo1 Storage Account"
+            },
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "kind": "Storage"
+        },
+        {
+            "name": "demovm-PublicIP",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "PublicIPAddress"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[toLower('demovm')]"
+                }
+            }
+        },
+        {
+            "name": "demovm-nsg",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "nsgRule1",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "22",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 100,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "demovm-VirtualNetwork",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'demovm-nsg')]"
+            ],
+            "tags": {
+                "displayName": "demovm-VirtualNetwork"
+            },
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "demovm-VirtualNetwork-Subnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24",
+                            "networkSecurityGroup": {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'demovm-nsg')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "demovm-NetworkInterface",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2023-04-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', 'demovm-PublicIP')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', 'demovm-VirtualNetwork')]"
+            ],
+            "tags": {
+                "displayName": "demovm-NetworkInterface"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', 'demovm-PublicIP')]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'demovm-VirtualNetwork', 'demovm-VirtualNetwork-Subnet')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "demovm",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2023-03-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'demovm-NetworkInterface')]"
+            ],
+            "tags": {
+                "displayName": "demovm"
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_A2_v2"
+                },
+                "osProfile": {
+                    "computerName": "demovm",
+                    "adminUsername": "user",
+                    "adminPassword": "user@@@"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "16.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "demovm-OSDisk",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', 'demovm-NetworkInterface')]"
+                        }
+                    ]
+                },
+                "diagnosticsProfile": {
+                    "bootDiagnostics": {
+                        "enabled": true,
+                        "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts/', toLower('demo1'))).primaryEndpoints.blob]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
